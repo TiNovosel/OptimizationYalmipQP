@@ -20,15 +20,15 @@ granicaPar = 48;    % Parametar koji odreduje donju granicu u mapi SUI motora un
 fix_hyst = 30;      % Parametar histereze granice izmedu hibridnih nacina rada
 chooseBound = 2;    % Odabir razlicitih granica medu nacinima rada: chooseBound = 1 --> boundary + hysteresis, chooseBound = 2 --> GM boundary + hysteris, chooseBound = 3 --> boundary + GM boundary
 
-Ssoc = 0.3;         % SoC na pocetku voznog ciklusa
+Ssoc = 1;         % SoC na pocetku voznog ciklusa
 
 % Postavljanje voznog ciklusa
 ciklus = 'UDDS'; % NEDC, HWFET, UDDS, US
 % Ponavljanje voznog ciklusa
-broj_ponavljanja = 3; 
+broj_ponavljanja = 10; 
 
 % 
-plugged_and_charging = 1; % 0: vehicle on road and driving; 1: vehicle plugged and being charged
+plugged_and_charging = 0; % 0: vehicle on road and driving; 1: vehicle plugged and being charged
 Pbatt_charging = -10000;     % Charging power (from grid)
 
 % Ucitavanje voznog ciklusa i upravljaèkih parametera za širinu histereze
