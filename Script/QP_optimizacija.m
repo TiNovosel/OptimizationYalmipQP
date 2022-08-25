@@ -2,10 +2,13 @@ clear all
 close all
 clc
 
+load simulacija_podaci.mat Pbat  %vrijedosti iz simulacije 
+
 %% Definiranje konstanti
-nu = 4; %[Pc; Preg; Pdem; N_c] Pc - snaga punjenja, Preg - reg kocenje, Pdem - demanded power  , N_c - vektor priključenosti na mrežu
-nx = 2; %[SoC ; C] 
+nu = 1; %[Pc; Preg; Pdem; N_c] Pc - snaga punjenja, Preg - reg kocenje, Pdem - demanded power  , N_c - vektor priključenosti na mrežu
+nx = 1; %[SoC ; C] 
 dT = 15; %min
+
 
 nch = 0.9; % Korisnost punjenja
 ndch = 0.9; % Korisnost pražnjenja
@@ -37,7 +40,7 @@ for r = 1:N_k_in_day
 
         C_price_day(r,1) = NT;
 
-    elseif r > 32 & r < 88 
+    elseif r > 32 & r < 88
 
         C_price_day(r,1) = VT;
     
@@ -126,25 +129,73 @@ end
 
 %% Snage 
 
-P_dem = []; %dobiti iz modela, ali sad su ovak random samo za isprobati
+P_dem_s = []; %Razdvojeno u dva vektora 
+P_reg_s = []; 
 
-for i = 1:N
-    if N_c(i,1) == 1
-        P_dem(i,1) = 0;
+
+for kk = 1:size(Pbat)
+    if Pbat(kk,1) >= 0
+        P_dem_s(kk,1) = Pbat(kk,1);
+        P_reg_s(kk,1) = 0;
     else
-        P_dem(i,1) = 0.2; 
+        P_reg_s(kk,1) = Pbat(kk,1);
+        P_dem_s(kk,1) = 0;
+    end
+end
+
+% Kracenje vektora na 6k sekundi
+P_dem_s = P_dem_s(1:6000,1);
+P_reg_s = P_reg_s(1:6000,1);
+
+% Normalizacija na po 100sec
+
+P_dem_n = []; %Normalizirano  
+P_reg_n = []; 
+second_counter = 0;
+sum_sec = 0;
+minutes_count = 0;
+
+for cc = 1:size(P_dem_s)
+    if second_counter < 60
+        sum_sec = sum_sec + P_dem_s(cc,1);
+        second_counter = second_counter + 1;
+    else
+        minutes_count = minutes_count + 1;
+        P_dem_n(minutes_count,1) = sum_sec;
+        second_counter = 0;
+        sum_sec = 0;
     end
 end
 
 
-P_reg = zeros(N,1); %dobiti iz modela
-
-
-
-
-
-
 %% Yalmip optimizacija
+
+% u = [Pc; Preg; Pdem; N_c]
+% x = [SoC ; C]
+
+yalmip('clear')
+
+x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
+
+u = sdpvar(nu, N);
+x = sdpvar(nx, N+1);
+
+constraints = [];
+objective = 0;
+for k = 1:N
+ objective = objective + (x(2,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
+ constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+u(2,k))*dT/Emax -u(3,k)*(dT/(nch*Emax))]; 
+ constraints = [constraints, x(2, k) == C_price(k), u(2,k) == P_reg(k), u(3,k) == P_dem(k)];
+ constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
+ constraints = [constraints, u(1,k) == u(1,k)*u(4,k)];
+end
+
+Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
+
+Optimal_Pc_Solution = Optimal_Pc(x0);
+
+
+
 
 % u = [Pc; Preg; Pdem; N_c]
 % x = [SoC ; C]

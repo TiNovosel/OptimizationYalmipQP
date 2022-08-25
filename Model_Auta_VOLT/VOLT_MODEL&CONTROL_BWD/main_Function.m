@@ -25,7 +25,7 @@ Ssoc = 1;         % SoC na pocetku voznog ciklusa
 % Postavljanje voznog ciklusa
 ciklus = 'UDDS'; % NEDC, HWFET, UDDS, US
 % Ponavljanje voznog ciklusa
-broj_ponavljanja = 10; 
+broj_ponavljanja = 5; 
 
 % 
 plugged_and_charging = 0; % 0: vehicle on road and driving; 1: vehicle plugged and being charged
@@ -38,5 +38,3 @@ vrijeme = vrijeme;
 sim('voltECMSBWD', vrijeme(end));
 plotBWDVolt
 statistika
-
-
