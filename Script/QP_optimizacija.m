@@ -5,8 +5,8 @@ clc
 load simulacija_podaci.mat Pbat  %vrijedosti iz simulacije 
 
 %% Definiranje konstanti
-nu = 1; %[Pc; Preg; Pdem; N_c] Pc - snaga punjenja, Preg - reg kocenje, Pdem - demanded power  , N_c - vektor priključenosti na mrežu
-nx = 1; %[SoC ; C] 
+nu = 1; %Pc - snaga punjenja
+nx = 1; %[SoC
 dT = 15; %min
 
 
@@ -73,7 +73,7 @@ for n = 1:N_k_in_day
 
         n_c(n,1) = 1;
 
-    elseif n <= 67
+    elseif n <= 66
 
         n_c(n,1) = 0;
     else 
@@ -85,7 +85,7 @@ end
 % Priključenost na mrežu subotom(Putovanje 4 sata)
 for j = 1:N_k_in_day
 
-    if j >= 28 & j <= 44 
+    if j > 40 && j <= 52 
 
         n_c_s(j,1) = 0;
 
@@ -98,7 +98,7 @@ end
 % Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)
 for j = 1:N_k_in_day
 
-    if j >= 64 & j <= 80 
+    if j > 56 && j <= 68 
 
         n_c_n(j,1) = 0;
 
@@ -143,28 +143,226 @@ for kk = 1:size(Pbat)
     end
 end
 
-% Kracenje vektora na 6k sekundi
-P_dem_s = P_dem_s(1:6000,1);
-P_reg_s = P_reg_s(1:6000,1);
+% Kracenje vektora na 5400 sekundi --> 6x 15 min
+P_dem_s = P_dem_s(1:5400,1);
+P_reg_s = P_reg_s(1:5400,1);
 
-% Normalizacija na po 100sec
 
+
+% Normalizacija na 900 sec -> 15 min 
 P_dem_n = []; %Normalizirano  
 P_reg_n = []; 
-second_counter = 0;
+second_counter_15min = 1;
 sum_sec = 0;
 minutes_count = 0;
 
 for cc = 1:size(P_dem_s)
-    if second_counter < 60
+    if second_counter_15min < 900
         sum_sec = sum_sec + P_dem_s(cc,1);
-        second_counter = second_counter + 1;
+        second_counter_15min = second_counter_15min + 1;
     else
         minutes_count = minutes_count + 1;
         P_dem_n(minutes_count,1) = sum_sec;
-        second_counter = 0;
+        second_counter_15min = 1;
         sum_sec = 0;
     end
+end
+
+% 
+sum_sec = 0;
+minutes_count = 0;
+
+for cc = 1:size(P_reg_s)
+    if second_counter_15min < 900
+        sum_sec = sum_sec + P_reg_s(cc,1);
+        second_counter_15min = second_counter_15min + 1;
+    else
+        minutes_count = minutes_count + 1;
+        P_reg_n(minutes_count,1) = sum_sec;
+        second_counter_15min = 1;
+        sum_sec = 0;
+    end
+end
+
+
+
+Pdem_radni_dan = [];
+ccc = 1;
+
+for Pdrd = 1 : n
+    if Pdrd <= 28   % 28 je 7 sati po 15 min
+
+        Pdem_radni_dan(Pdrd,1) = 0;
+
+    elseif Pdrd <= 30 % 2x15min vožnje do posla
+        Pdem_radni_dan(Pdrd,1) = P_dem_n(ccc,1);
+        ccc = ccc + 1; 
+
+    elseif Pdrd <= 64
+
+        Pdem_radni_dan(Pdrd,1) = 0;
+        ccc = 3;
+
+    elseif Pdrd <= 66
+        Pdem_radni_dan(Pdrd,1) = P_dem_n(ccc,1);
+        ccc = ccc + 1; 
+    else 
+
+        Pdem_radni_dan(Pdrd,1) = 0;
+    end
+end
+
+
+
+Preg_radni_dan = [];
+kkk = 1;
+
+for Prrd = 1 : n
+    if Prrd <= 28   % 28 je 7 sati po 15 min
+
+        Preg_radni_dan(Prrd,1) = 0;
+
+    elseif Prrd <= 30 % 2x15min vožnje do posla
+        Preg_radni_dan(Prrd,1) = P_reg_n(kkk,1);
+        kkk = kkk + 1; 
+
+    elseif Prrd <= 64
+
+        Preg_radni_dan(Prrd,1) = 0;
+        kkk = 3;
+
+    elseif Prrd <= 66
+        Preg_radni_dan(Prrd,1) = P_reg_n(kkk,1);
+        kkk = kkk + 1; 
+    else 
+
+        Preg_radni_dan(Prrd,1) = 0;
+    end
+end
+
+
+
+Pdem_sub = [];
+fff = 1;
+
+% Priključenost na mrežu subotom(Putovanje 4 sata)
+for Pds = 1:n
+
+    if Pds > 40 && Pds <= 52 
+
+        Pdem_sub(Pds,1) = P_dem_n(fff,1);
+        fff = fff + 1;
+        if fff > 6
+            fff = 1;
+        end
+    else 
+        Pdem_sub(Pds,1) = 0;
+    end
+
+end
+
+
+% Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)
+Pdem_ned = [];
+fff = 1;
+
+for Pdn = 1:n
+
+    if Pdn > 56 && Pdn <= 68 
+
+        Pdem_ned(Pdn,1) = P_dem_n(fff,1);
+        fff = fff + 1;
+        if fff > 6
+            fff = 1;
+        end
+
+    else 
+        Pdem_ned(Pdn,1) = 0;
+    end
+
+end
+
+
+Preg_sub = [];
+ddd = 1;
+
+% Priključenost na mrežu subotom(Putovanje 4 sata)
+for Prs = 1:n
+
+    if Prs > 40 && Prs <= 52 
+
+        Preg_sub(Prs,1) = P_reg_n(ddd,1);
+        ddd = ddd + 1;
+        if ddd > 6
+            ddd = 1;
+        end
+    else 
+        Preg_sub(Prs,1) = 0;
+    end
+
+end
+
+
+% Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)
+Preg_ned = [];
+ddd = 1;
+
+for Prn = 1:n
+
+    if Prn > 56 && Prn <= 68 
+
+        Preg_ned(Prn,1) = P_reg_n(ddd,1);
+        ddd = ddd + 1;
+        if ddd > 6
+            ddd = 1;
+        end
+
+    else 
+        Preg_ned(Prn,1) = 0;
+    end
+
+end
+
+
+
+%Vektori vrijednosti trazenog i regen vracene snage za cijeli horizont
+Pdem = [];   
+Preg = [];
+
+% Ukupni vektor trazene snage za cijeli tjedan
+for pmin = 1:(N/N_k_in_day)
+
+    if pmin <= 5 
+
+        Pdem = [Pdem; Pdem_radni_dan];
+
+    elseif c == 6
+
+        Pdem = [Pdem; Pdem_sub];
+
+    else
+        Pdem = [Pdem; Pdem_ned];
+
+    end
+
+end
+
+% Ukupni vektor regen snage za cijeli tjedan
+for ppmin = 1:(N/N_k_in_day)
+
+    if ppmin <= 5 
+
+        Preg = [Preg; Preg_radni_dan];
+
+    elseif c == 6
+
+        Preg = [Preg; Preg_sub];
+
+    else
+        Preg = [Preg; Preg_ned];
+
+    end
+
 end
 
 
@@ -173,26 +371,26 @@ end
 % u = [Pc; Preg; Pdem; N_c]
 % x = [SoC ; C]
 
-yalmip('clear')
-
-x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
-
-u = sdpvar(nu, N);
-x = sdpvar(nx, N+1);
-
-constraints = [];
-objective = 0;
-for k = 1:N
- objective = objective + (x(2,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
- constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+u(2,k))*dT/Emax -u(3,k)*(dT/(nch*Emax))]; 
- constraints = [constraints, x(2, k) == C_price(k), u(2,k) == P_reg(k), u(3,k) == P_dem(k)];
- constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
- constraints = [constraints, u(1,k) == u(1,k)*u(4,k)];
-end
-
-Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
-
-Optimal_Pc_Solution = Optimal_Pc(x0);
+% yalmip('clear')
+% 
+% x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
+% 
+% u = sdpvar(nu, N);
+% x = sdpvar(nx, N+1);
+% 
+% constraints = [];
+% objective = 0;
+% for k = 1:N
+%  objective = objective + (x(2,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
+%  constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+u(2,k))*dT/Emax -u(3,k)*(dT/(nch*Emax))]; 
+%  constraints = [constraints, x(2, k) == C_price(k), u(2,k) == P_reg(k), u(3,k) == P_dem(k)];
+%  constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
+%  constraints = [constraints, u(1,k) == u(1,k)*u(4,k)];
+% end
+% 
+% Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
+% 
+% Optimal_Pc_Solution = Optimal_Pc(x0);
 
 
 
@@ -200,6 +398,34 @@ Optimal_Pc_Solution = Optimal_Pc(x0);
 % u = [Pc; Preg; Pdem; N_c]
 % x = [SoC ; C]
 
+
+% Alfa = 0.5;
+% 
+% yalmip('clear')
+% 
+% x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
+% 
+% u = sdpvar(nu, N);
+% x = sdpvar(nx, N+1);
+% 
+% constraints = [];
+% objective = 0;
+% for k = 1:N
+%     objective = objective + (C_price(1,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
+%     constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+Preg(1,k))*dT/Emax -Pdem(1,k)*(dT/(nch*Emax))]; 
+%     constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
+%     if k == N
+%         constraints = [constraints, x(1,k+1) == 1];
+%     end
+% end
+% 
+% Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
+% 
+% Optimal_Pc_Solution = Optimal_Pc(x0);
+
+
+Alfa = 0.5;
+
 yalmip('clear')
 
 x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
@@ -210,15 +436,17 @@ x = sdpvar(nx, N+1);
 constraints = [];
 objective = 0;
 for k = 1:N
- objective = objective + (x(2,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
- constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+u(2,k))*dT/Emax -u(3,k)*(dT/(nch*Emax))]; 
- constraints = [constraints, x(2, k) == C_price(k), u(2,k) == P_reg(k), u(3,k) == P_dem(k)];
- constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
- constraints = [constraints, u(1,k) == u(1,k)*u(4,k)];
+    objective = objective + (C_price(k,1)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
+    constraints = [constraints, x(1,k+1) == x(1,k) + ndch*(u(1,k)+Preg(k,1))*dT/Emax -Pdem(k,1)*(dT/(nch*Emax))]; 
+    constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
+    if k == N
+        constraints = [constraints, x(1,k+1) == 1];
+    end
 end
 
 Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
 
 Optimal_Pc_Solution = Optimal_Pc(x0);
+
 
 
