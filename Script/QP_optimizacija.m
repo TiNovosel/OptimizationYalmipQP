@@ -6,7 +6,7 @@ load simulacija_podaci.mat Pbat  %vrijedosti iz simulacije
 
 %% Definiranje konstanti
 nu = 1; %Pc - snaga punjenja
-nx = 1; %[SoC
+nx = 1; %SoC
 dT = 15; %min
 
 
@@ -50,16 +50,18 @@ for r = 1:N_k_in_day
     end
 end
 
+
+% Definiranje tjednog vektora za dvotarifnu cijenu -->C_price
 for d = 1:(N/N_k_in_day)
 
-    C_price = [C_price;C_price_day];
+    C_price = [C_price;C_price_day]; %Dvotarfini tijedni vektor
 
 end
 
 
 
 %% Vektor priključenosti na mrežu
-% Priključenost na mrežu (Put pola sata do posla u 7 i povratak kući 45 min nakon 16h)
+% Priključenost na mrežu (Put 30min do posla u 7 i povratak kući 30min nakon 16h)-> n_c 
 for n = 1:N_k_in_day
     if n <= 28   % 28 je 7 sati po 15 min
 
@@ -82,7 +84,7 @@ for n = 1:N_k_in_day
     end
 end
 
-% Priključenost na mrežu subotom(Putovanje 4 sata)
+% Priključenost na mrežu subotom(Putovanje 4 sata)-> n_c_s
 for j = 1:N_k_in_day
 
     if j > 40 && j <= 52 
@@ -95,7 +97,7 @@ for j = 1:N_k_in_day
 
 end
 
-% Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)
+% Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)-> n_c_n
 for j = 1:N_k_in_day
 
     if j > 56 && j <= 68 
@@ -108,7 +110,7 @@ for j = 1:N_k_in_day
 
 end
 
-% Ukupni vektor priključenosti na mrežu za cijeli tjedan
+% Ukupni vektor priključenosti na mrežu za cijeli tjedan --> N_c 
 for c = 1:(N/N_k_in_day)
 
     if c <= 5 
@@ -129,11 +131,15 @@ end
 
 %% Snage 
 
-P_dem_s = []; %Razdvojeno u dva vektora 
+% Simulacijski vektor Pbat dolazi na sekundnoj bazi s pozitivnim i
+% negativnim snagama sto razdvajamo u dva vektora jer je tako ulaz u
+% dinamiku baterije.
+
+%Razdvojeno u dva vektora 
+P_dem_s = []; 
 P_reg_s = []; 
 
-
-for kk = 1:size(Pbat)
+for kk = 1:size(Pbat) % -> P_dem_s, P_reg_s 
     if Pbat(kk,1) >= 0
         P_dem_s(kk,1) = Pbat(kk,1);
         P_reg_s(kk,1) = 0;
@@ -150,13 +156,13 @@ P_reg_s = P_reg_s(1:5400,1);
 
 
 % Normalizacija na 900 sec -> 15 min 
-P_dem_n = []; %Normalizirano  
+P_dem_n = []; 
 P_reg_n = []; 
 second_counter_15min = 1;
 sum_sec = 0;
 minutes_count = 0;
 
-for cc = 1:size(P_dem_s)
+for cc = 1:size(P_dem_s) % -> P_dem_n
     if second_counter_15min < 900
         sum_sec = sum_sec + P_dem_s(cc,1);
         second_counter_15min = second_counter_15min + 1;
@@ -168,11 +174,11 @@ for cc = 1:size(P_dem_s)
     end
 end
 
-% 
+
 sum_sec = 0;
 minutes_count = 0;
 
-for cc = 1:size(P_reg_s)
+for cc = 1:size(P_reg_s) % -> P_reg_n
     if second_counter_15min < 900
         sum_sec = sum_sec + P_reg_s(cc,1);
         second_counter_15min = second_counter_15min + 1;
@@ -185,11 +191,12 @@ for cc = 1:size(P_reg_s)
 end
 
 
-
+% Određivanje vektora trošenja(dem) i dobivene snage regenom(reg) za cijeli
+% dan na delta t = 15min
 Pdem_radni_dan = [];
 ccc = 1;
 
-for Pdrd = 1 : n
+for Pdrd = 1 : n % -> Pdem_radni_dan
     if Pdrd <= 28   % 28 je 7 sati po 15 min
 
         Pdem_radni_dan(Pdrd,1) = 0;
@@ -217,7 +224,7 @@ end
 Preg_radni_dan = [];
 kkk = 1;
 
-for Prrd = 1 : n
+for Prrd = 1 : n % -> Preg_radni_dan
     if Prrd <= 28   % 28 je 7 sati po 15 min
 
         Preg_radni_dan(Prrd,1) = 0;
@@ -245,8 +252,8 @@ end
 Pdem_sub = [];
 fff = 1;
 
-% Priključenost na mrežu subotom(Putovanje 4 sata)
-for Pds = 1:n
+% Snaga potrošena subotom(Putovanje 3 sata)
+for Pds = 1:n % -> Pdem_sub
 
     if Pds > 40 && Pds <= 52 
 
@@ -262,11 +269,11 @@ for Pds = 1:n
 end
 
 
-% Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)
+% Snaga potrošena nedjeljom (Povratak s putovanja 3 sata)
 Pdem_ned = [];
 fff = 1;
 
-for Pdn = 1:n
+for Pdn = 1:n % -> Pdem_ned
 
     if Pdn > 56 && Pdn <= 68 
 
@@ -286,8 +293,8 @@ end
 Preg_sub = [];
 ddd = 1;
 
-% Priključenost na mrežu subotom(Putovanje 4 sata)
-for Prs = 1:n
+% Snaga dobivena kocenjem subotom(Putovanje 3 sata)
+for Prs = 1:n % -> Preg_sub
 
     if Prs > 40 && Prs <= 52 
 
@@ -303,11 +310,11 @@ for Prs = 1:n
 end
 
 
-% Priključenost na mrežu nedjeljom (Povratak s putovanja 4 sata)
+% Snaga dobivena kocenjem nedjeljom (Povratak s putovanja 4 sata)
 Preg_ned = [];
 ddd = 1;
 
-for Prn = 1:n
+for Prn = 1:n % -> Preg_ned
 
     if Prn > 56 && Prn <= 68 
 
@@ -330,7 +337,7 @@ Pdem = [];
 Preg = [];
 
 % Ukupni vektor trazene snage za cijeli tjedan
-for pmin = 1:(N/N_k_in_day)
+for pmin = 1:(N/N_k_in_day) % -> Pdem
 
     if pmin <= 5 
 
@@ -348,7 +355,7 @@ for pmin = 1:(N/N_k_in_day)
 end
 
 % Ukupni vektor regen snage za cijeli tjedan
-for ppmin = 1:(N/N_k_in_day)
+for ppmin = 1:(N/N_k_in_day) % -> Preg
 
     if ppmin <= 5 
 
@@ -367,61 +374,6 @@ end
 
 
 %% Yalmip optimizacija
-
-% u = [Pc; Preg; Pdem; N_c]
-% x = [SoC ; C]
-
-% yalmip('clear')
-% 
-% x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
-% 
-% u = sdpvar(nu, N);
-% x = sdpvar(nx, N+1);
-% 
-% constraints = [];
-% objective = 0;
-% for k = 1:N
-%  objective = objective + (x(2,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
-%  constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+u(2,k))*dT/Emax -u(3,k)*(dT/(nch*Emax))]; 
-%  constraints = [constraints, x(2, k) == C_price(k), u(2,k) == P_reg(k), u(3,k) == P_dem(k)];
-%  constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
-%  constraints = [constraints, u(1,k) == u(1,k)*u(4,k)];
-% end
-% 
-% Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
-% 
-% Optimal_Pc_Solution = Optimal_Pc(x0);
-
-
-
-
-% u = [Pc; Preg; Pdem; N_c]
-% x = [SoC ; C]
-
-
-% Alfa = 0.5;
-% 
-% yalmip('clear')
-% 
-% x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
-% 
-% u = sdpvar(nu, N);
-% x = sdpvar(nx, N+1);
-% 
-% constraints = [];
-% objective = 0;
-% for k = 1:N
-%     objective = objective + (C_price(1,k)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
-%     constraints = [constraints, x(1, k+1) == x(1, k) + ndch*(u(1,k)+Preg(1,k))*dT/Emax -Pdem(1,k)*(dT/(nch*Emax))]; 
-%     constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
-%     if k == N
-%         constraints = [constraints, x(1,k+1) == 1];
-%     end
-% end
-% 
-% Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
-% 
-% Optimal_Pc_Solution = Optimal_Pc(x0);
 
 
 Alfa = 0.5;
