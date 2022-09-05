@@ -26,15 +26,14 @@ n_c_s = []; % Priljučenost na mrežu subota
 n_c_n = []; % Priključenost na mrežu nedjeljom
 
 
-VT = 2; %Viša tarifa - cijene struje
-NT = 1; %Niža tarifa - cijene struje
+VT = 0.9535*1/4; %Viša tarifa - cijene struje
+NT = 0.4456*1/4; %Niža tarifa - cijene struje
 
 N = (7*24*60)/dT; %Ukupni broj diskretnih trenutaka
 N_k_in_day = (24*60)/dT;
 
-x0 = []; %Početne vrijednosti
 
-%% Definiranje dvotarifne cijene struje po diskretnom koraku
+a%% Definiranje dvotarifne cijene struje po diskretnom koraku
 for r = 1:N_k_in_day
     if r < 32
 
@@ -374,23 +373,26 @@ end
 
 
 %% Yalmip optimizacija
-
-
-Alfa = 0.5;
+Alfa = 0.5; % Tezinski koeficjent
 
 yalmip('clear')
 
-x0 = [SoC0; C_price(1,1)]; % početne vrijednosti 
 
-u = sdpvar(nu, N);
-x = sdpvar(nx, N+1);
+x0 = [SoC0]; % početne vrijednosti 
+
+u = sdpvar(nu, N);  %P_c
+x = sdpvar(nx, N+1); %SoC
 
 constraints = [];
 objective = 0;
+
 for k = 1:N
-    objective = objective + (C_price(k,1)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa)
-    constraints = [constraints, x(1,k+1) == x(1,k) + ndch*(u(1,k)+Preg(k,1))*dT/Emax -Pdem(k,1)*(dT/(nch*Emax))]; 
-    constraints = [constraints, 0.3 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
+    objective = objective + (C_price(k,1)*u(1,k)*(dT/1000))*Alfa + (u(1,k)*u(1,k))*(1-Alfa);
+    if Pdem(k,1) > 0
+        constraints = [constraints, u(1,k) == 0];
+    end
+    constraints = [constraints, x(1,k+1) == x(1,k) + ndch*(u(1,k)+Preg(k,1))*dT/Emax -Pdem(k,1)*(dT/(nch*Emax))];
+    constraints = [constraints, 0 <= x(1,k)<= 1, 0 <= u(1,k)<= 10000];
     if k == N
         constraints = [constraints, x(1,k+1) == 1];
     end
@@ -398,7 +400,32 @@ end
 
 Optimal_Pc = optimizer(constraints, objective,[],x(:,1),u(:,:)) %objekt
 
-Optimal_Pc_Solution = Optimal_Pc(x0);
+Optimal_Pc_Solution = Optimal_Pc(x0)
 
 
 
+
+% %% Plot
+% %Plot snage dobivene iz simulacije:
+% Pbat = Pbat(1:5400,1);
+% %plot(Pbat, 'b--', 'LineWidth', 3);
+% title(strcat('Snaga pražnjenja i punjenja za vrijeme vožnje'),'FontSize',14,'FontName','Times');
+% hold on, plot(P_dem_s,'r','LineWidth', 1);
+% hold on, plot(P_reg_s,'b','LineWidth', 1);
+% ylabel('P[W]','FontSize',14,'FontName','Times');
+% xlabel('t[sec]','FontSize',14,'FontName','Times');
+% legend("P_{dem}","P_{reg}")
+% set(gca,'FontSize',14);
+% xlim([0 5400]);
+% 
+% %% Plot
+% %Plot snage dobivene iz simulacije:
+% %plot(Pbat, 'b--', 'LineWidth', 3);
+% title(strcat('Tjedni profil snage po diskretnom vremenu'),'FontSize',14,'FontName','Times');
+% hold on, plot(Pdem,'r','LineWidth', 1);
+% hold on, plot(Preg,'b','LineWidth', 1);
+% ylabel('P[W]','FontSize',14,'FontName','Times');
+% xlabel('\Delta T','FontSize',14,'FontName','Times');
+% legend("P_{dem}","P_{reg}")
+% set(gca,'FontSize',14);
+% xlim([0 672]);
